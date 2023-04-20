@@ -4,3 +4,7 @@ Built using VescWear source and released under corresponding GNU GENERAL PUBLIC 
 [https://github.com/Thunkar/VescWear]
 
 To use don't forget to activate the venv and adjust the config dictionary values.
+
+![cover](https://raw.githubusercontent.com/louckazdenekjr/WhatVESC/master/cover.png)
+
+

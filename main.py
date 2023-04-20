@@ -64,10 +64,8 @@ async def bluetooth():
 				print(f"Battery percentage: {percent_bat}%")
 				print(f"Temp FET: {mostemp:.0f}°C")
 				print(f"Temp MOT: {mottemp:.0f}°C")
-
-				for x in range(10):
-					print()
-						
+				print()
+				
 	# TODO: we can connect directly, but for now we scan first
 	while True:
 		try:
