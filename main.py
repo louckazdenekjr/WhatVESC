@@ -13,12 +13,11 @@ UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 config = {
-	"address": "FA:B2:4E:80:50:90",
-	"poll": "5",
+	"address": "None",
 	"cell_series": "15",
-	"cell_min": "3.0",
+	"cell_min": "2.7",
 	"cell_max": "4.2",
-	"unit": "KMH",
+	"unit": "kmh",
 }
 
 async def bluetooth():
@@ -28,13 +27,6 @@ async def bluetooth():
 	packet_get_values.payload = struct.pack(">BI", 51, (1 << 0) | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7))
 	packet_get_values.encode()
 
-	packet_get_balance = Packet()
-	packet_get_balance.size = 2
-	packet_get_balance.payload = struct.pack(">B", 79)
-	packet_get_balance.encode()
-
-	is_balance = True
-
 	def handle_rx(_: int, data: bytearray):
 		buffer = Buffer()
 		buffer.extend(data)
@@ -42,10 +34,12 @@ async def bluetooth():
 
 		if found:
 			if packet.payload[0:len(packet_get_values.payload)] == packet_get_values.payload:
-				if config["unit"] == "KMH":
+				if config["unit"] == "kmh":
 					conversion_factor = 3.6
+					unit_s = "km/h"
 				else:
 					conversion_factor = 2.237
+					unit_s = "mph"
 				mostemp : float = struct.unpack(">H", packet.payload[5:7])[0] / 10
 				mottemp : float = struct.unpack(">H", packet.payload[7:9])[0] / 10
 				current : float = struct.unpack(">i", packet.payload[9:13])[0] / 100
@@ -59,31 +53,22 @@ async def bluetooth():
 				cell_max : float = float(config["cell_max"])
 				batp : float = (cellv-cell_min)/(cell_max-cell_min)*100
 				duty = int(round(abs(dutycycle), 0))
+				percent_bat = int(round(min(batp, 100), 0))
 
-				print(f"Speed: {abs(speed):.1f}")
-				print(f"Voltage: {voltage:.2f} V")
+				print(f"Speed: {abs(speed):.1f} {unit_s}")
+				print(f"Duty cycle: {duty}%")
+				
+				print(f"Pack Voltage: {voltage:.2f} V")
 				print(f"Average cell voltage: {cellv:.2f} V")
-				print(f"Current: {current:.2f} A")
-				print(f"duty: {duty}")
-				#print(int(round(min(batp, 100), 0)))
+				print(f"Battery current: {current:.2f} A")
+				print(f"Battery percentage: {percent_bat}%")
 				print(f"Temp FET: {mostemp:.0f}°C")
 				print(f"Temp MOT: {mottemp:.0f}°C")
-		
-			if packet.payload[0:len(packet_get_balance.payload)] == packet_get_balance.payload:
-				balappstate : int = struct.unpack(">H", packet.payload[25:27])[0]
-				if balappstate > 0:
-					footstate : int = struct.unpack(">H", packet.payload[27:29])[0]
-					footstates = ["OFF", "HALF", "FULL"]
-					print(f"{footstates[footstate]}")
-				else:
-					is_balance = False
 
-				for x in range(100):
-					print("-", end='')
-				print()
-					
-					
-	# we can connect directly, but for now we scan first
+				for x in range(10):
+					print()
+						
+	# TODO: we can connect directly, but for now we scan first
 	while True:
 		try:
 			# scan for devices
@@ -116,14 +101,12 @@ async def bluetooth():
 			async with bleak.BleakClient(scanned_uarts[0]) as client:
 				await client.start_notify(UART_TX_CHAR_UUID, handle_rx)
 				if client.is_connected:
-					print("Connected to VESC.")
+					print("Connected to VESC.") # TODO: implement check
 
 				while True:
 					await asyncio.sleep(1/5)
 					if client.is_connected:
 						await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_values.packet))
-						if is_balance:
-							await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_balance.packet))
 		except bleak.exc.BleakError as e:
 			print(f"error: {e}")
 			await asyncio.sleep(1)
