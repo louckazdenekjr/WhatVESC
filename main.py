@@ -28,10 +28,10 @@ async def bluetooth():
 	packet_get_values.payload = struct.pack(">BI", 51, (1 << 0) | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7))
 	packet_get_values.encode()
 
-	packet_get_ballance = Packet()
-	packet_get_ballance.size = 2
-	packet_get_ballance.payload = struct.pack(">B", 79)
-	packet_get_ballance.encode()
+	packet_get_balance = Packet()
+	packet_get_balance.size = 2
+	packet_get_balance.payload = struct.pack(">B", 79)
+	packet_get_balance.encode()
 
 	is_balance = True
 
@@ -65,11 +65,11 @@ async def bluetooth():
 				print(f"Average cell voltage: {cellv:.2f} V")
 				print(f"Current: {current:.2f} A")
 				print(f"duty: {duty}")
-				print(int(round(min(batp, 100), 0)))
+				#print(int(round(min(batp, 100), 0)))
 				print(f"Temp FET: {mostemp:.0f}°C")
 				print(f"Temp MOT: {mottemp:.0f}°C")
 		
-			if packet.payload[0:len(packet_get_ballance.payload)] == packet_get_ballance.payload:
+			if packet.payload[0:len(packet_get_balance.payload)] == packet_get_balance.payload:
 				balappstate : int = struct.unpack(">H", packet.payload[25:27])[0]
 				if balappstate > 0:
 					footstate : int = struct.unpack(">H", packet.payload[27:29])[0]
@@ -78,6 +78,11 @@ async def bluetooth():
 				else:
 					is_balance = False
 
+				for x in range(100):
+					print("-", end='')
+				print()
+					
+					
 	# we can connect directly, but for now we scan first
 	while True:
 		try:
@@ -118,7 +123,7 @@ async def bluetooth():
 					if client.is_connected:
 						await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_values.packet))
 						if is_balance:
-							await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_ballance.packet))
+							await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_balance.packet))
 		except bleak.exc.BleakError as e:
 			print(f"error: {e}")
 			await asyncio.sleep(1)
