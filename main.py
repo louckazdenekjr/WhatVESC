@@ -75,8 +75,8 @@ async def bluetooth():
 			if True:
 				scanned_uarts = []
 				def find_uart_device(device, adv):
-					if UART_SERVICE_UUID.lower() in adv.service_uuids and device.address not in scanned_uarts:
-						scanned_uarts.append(device.address)
+					if UART_SERVICE_UUID.lower() in adv.service_uuids and device not in scanned_uarts:
+						scanned_uarts.append(device)
 				
 				# configure scanner
 				scanner = bleak.BleakScanner(find_uart_device)
@@ -87,9 +87,9 @@ async def bluetooth():
 				await scanner.start()
 				await asyncio.sleep(5.0)
 				await scanner.stop()
+				
 				for uart in scanned_uarts:
 					print(f"\t{uart}")
-
 				await asyncio.sleep(5)
 
 			if len(scanned_uarts) > 0:
@@ -98,7 +98,7 @@ async def bluetooth():
 				print("No BLE UART found.")
 				exit()	
 
-			async with bleak.BleakClient(scanned_uarts[0]) as client:
+			async with bleak.BleakClient(scanned_uarts[0].address) as client:
 				await client.start_notify(UART_TX_CHAR_UUID, handle_rx)
 				if client.is_connected:
 					print("Connected to VESC.") # TODO: implement check
