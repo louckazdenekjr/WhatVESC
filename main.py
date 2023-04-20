@@ -40,18 +40,18 @@ async def bluetooth():
 				else:
 					conversion_factor = 2.237
 					unit_s = "mph"
-				mostemp : float = struct.unpack(">H", packet.payload[5:7])[0] / 10
-				mottemp : float = struct.unpack(">H", packet.payload[7:9])[0] / 10
-				current : float = struct.unpack(">i", packet.payload[9:13])[0] / 100
-				dutycycle : float = struct.unpack(">h", packet.payload[13:15])[0] / 10
-				speed : float = (struct.unpack(">i", packet.payload[15:19])[0] / 1000) * conversion_factor
-				voltage : float = struct.unpack(">H", packet.payload[19:21])[0] / 10
+				mostemp = struct.unpack(">H", packet.payload[5:7])[0] / 10
+				mottemp = struct.unpack(">H", packet.payload[7:9])[0] / 10
+				current = struct.unpack(">i", packet.payload[9:13])[0] / 100
+				dutycycle = struct.unpack(">h", packet.payload[13:15])[0] / 10
+				speed = (struct.unpack(">i", packet.payload[15:19])[0] / 1000) * conversion_factor
+				voltage = struct.unpack(">H", packet.payload[19:21])[0] / 10
 
-				cell_series : int = int(config["cell_series"])
-				cellv : float = voltage / cell_series
-				cell_min : float = float(config["cell_min"])
-				cell_max : float = float(config["cell_max"])
-				batp : float = (cellv-cell_min)/(cell_max-cell_min)*100
+				cell_series = int(config["cell_series"])
+				cellv = voltage / cell_series
+				cell_min = float(config["cell_min"])
+				cell_max = float(config["cell_max"])
+				batp = (cellv-cell_min)/(cell_max-cell_min)*100
 				duty = int(round(abs(dutycycle), 0))
 				percent_bat = int(round(min(batp, 100), 0))
 
@@ -62,8 +62,8 @@ async def bluetooth():
 				print(f"Average cell voltage: {cellv:.2f} V")
 				print(f"Battery current: {current:.2f} A")
 				print(f"Battery percentage: {percent_bat}%")
-				print(f"Temp FET: {mostemp:.0f}°C")
-				print(f"Temp MOT: {mottemp:.0f}°C")
+				print(f"Temp FET: {mostemp:.0f} °C")
+				print(f"Temp MOT: {mottemp:.0f} °C")
 				print()
 				
 	# TODO: we can connect directly, but for now we scan first
