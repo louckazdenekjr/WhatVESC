@@ -287,6 +287,7 @@ if __name__ == "__main__":
 		# run main
 		asyncio.run(bluetooth())
 	except KeyboardInterrupt:
+		# handle interrupt gracefully
 		exit()
 	finally:
 		# end curses
