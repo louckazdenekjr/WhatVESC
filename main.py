@@ -20,15 +20,18 @@ config = {
 	"unit": "kmh",
 }
 
+
 def reportLine(line, text):
 	screen.addstr(line, 0, text)
 	screen.refresh()
 
+
 def reportMetrics(data):
 	for x in range(len(data)):
-		screen.addstr(x, 0, data[x].ljust(50))
+		screen.addstr(x, 0, data[x].ljust(40))
 		
 	screen.refresh()
+
 
 async def bluetooth():
 	# create packet that requests current_in(), speed, voltage_in, battery_level from COMM_GET_VALUES_SETUP_SELECTIVE
@@ -99,6 +102,7 @@ async def bluetooth():
 			await asyncio.sleep(5.0)
 			await scanner.stop()
 			
+			# display devices
 			for uart in scanned_uarts:
 				reportLine(current_line, f"\t{uart}")
 				current_line += 1
@@ -122,9 +126,11 @@ async def bluetooth():
 
 			screen.erase()
 			while True:
-				await asyncio.sleep(0.2)
 				if client.is_connected:
 					await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_values.packet))
+					
+				# poll rate 200 ms
+				await asyncio.sleep(0.2) 
 	except bleak.exc.BleakError as e:
 		reportLine(current_line, f"error: {e}")
 		current_line += 1
@@ -136,19 +142,24 @@ async def bluetooth():
 
 
 class Buffer:
+
 	"""Vesc Buffer loads and finds packets"""
 	def __init__(self):
 		self.__buffer : bytearray = bytearray()
 
+
 	def extend(self, data: bytearray):
 		self.__buffer.extend(data)
+
 
 	def clear(self, data: bytearray):
 		self.__buffer.clear()
 
+
 	@property
 	def buffer(self):
 		return bytearray(self.__buffer)
+
 
 	def next_packet(self):
 		packet_exists = False
@@ -174,14 +185,15 @@ class Buffer:
 						del self.__buffer[0:v_end+1]
 		
 		return packet_exists, packet
-
+		
+		
 	def __str__(self):
 		"""Buffer as string"""
 		return " ".join([hex(x) for x in self.__buffer])
 
 
-
 class Packet:
+
 	"""Vesc Packet load data then encode or decode"""
 	def __init__(self):
 		"""Vesc Packet load data then encode or decode. size is 2 for small packets and 3 for large packets. size 2 is the only implemented size so far"""
@@ -190,9 +202,11 @@ class Packet:
 		self.__packet : bytes = bytes()
 		self.__crc : bytes = bytes()
 
+
 	@property
 	def size(self):
 		return self.__size
+
 
 	@size.setter
 	def size(self, size):
@@ -201,29 +215,36 @@ class Packet:
 		else:
 			raise ValueError("Size must be 2 or 3")
 
+
 	@property
 	def payload(self):
 		return self.__payload
+
 
 	@payload.setter
 	def payload(self, payload : bytes):
 		self.__payload = bytes(payload)
 
+
 	@property
 	def packet(self):
 		return self.__packet
+
 
 	@packet.setter
 	def packet(self, packet : bytes):
 		self.__packet = bytes(packet)
 
+
 	@property
 	def crc(self):
 		return self.__crc
 
+
 	@crc.setter
 	def crc(self, crc : bytes):
 		self.__crc = bytes(crc)
+
 
 	def encode(self):
 		self.__crc = struct.pack(">H", CRCCCITT().calculate(self.__payload))
@@ -232,6 +253,7 @@ class Packet:
 		elif self.__size == 3:
 			# TODO: implement size 3 packets
 			pass
+
 
 	def decode(self):
 		self.__size = ord(self.__packet[:1])
@@ -244,8 +266,10 @@ class Packet:
 			# TODO: implement size 3 packets
 			pass
 
+
 	def validate(self):
 		return struct.pack(">H", CRCCCITT().calculate(self.__payload)) == self.__crc
+
 
 	def __str__(self):
 		"""Packet as string"""
@@ -258,11 +282,15 @@ if __name__ == "__main__":
 		screen = curses.initscr()
 		curses.noecho()
 		curses.cbreak()
+		curses.curs_set(0)
 		
 		# run main
 		asyncio.run(bluetooth())
+	except KeyboardInterrupt:
+		exit()
 	finally:
 		# end curses
-		screen = curses.initscr()
-		curses.noecho()
-		curses.cbreak()
+		curses.echo()
+		curses.nocbreak()
+		curses.curs_set(1)
+		curses.endwin()
