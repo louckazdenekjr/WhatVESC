@@ -1,0 +1,3 @@
+bleak==0.20.2
+PyCRC==0.10.0
+pythoncrc==1.21
