@@ -10,27 +10,51 @@ UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-# TODO: load from JSON
-# TODO: add a wizard
+
+#----------------------------------------
+# CONFIG VALUES
 config = {
-	"address": "None",
+	"address": "D6:27:82:98:07:D1", # -> "none"
 	"cell_series": "15",
 	"cell_min": "2.7",
 	"cell_max": "4.2",
 	"unit": "kmh",
 }
+#----------------------------------------
 
 
-def reportLine(line, text):
-	screen.addstr(line, 0, text)
-	screen.refresh()
-
-
-def reportMetrics(data):
-	for x in range(len(data)):
-		screen.addstr(x, 0, data[x].ljust(40))
+class Terminal:
+	
+	def __init__(self):
+		self.screen = curses.initscr()
+		curses.noecho()
+		curses.cbreak()
+		curses.curs_set(0)
+		self.current_line = 0
 		
-	screen.refresh()
+		
+	def unload(self):
+		curses.echo()
+		curses.nocbreak()
+		curses.curs_set(1)
+		curses.endwin()
+		
+		
+	def reportLine(self, text):
+		self.screen.addstr(self.current_line, 0, text)
+		self.current_line += 1
+		self.screen.refresh()
+		
+	
+	def erase(self):
+		self.screen.erase()
+
+
+	def reportMetrics(self, data):
+		for x in range(len(data)):
+			self.screen.addstr(x, 0, data[x].ljust(40))
+			
+		self.screen.refresh()
 
 
 async def bluetooth():
@@ -77,68 +101,69 @@ async def bluetooth():
 				data.append(f"Battery percentage: {percent_bat}%")
 				data.append(f"Temp FET: {mostemp:.0f} °C")
 				data.append(f"Temp MOT: {mottemp:.0f} °C")
-				reportMetrics(data)
+				terminal.reportMetrics(data)
 				
-	# TODO: we can connect directly, but for now we scan first
-	try:
+	if config["address"] != "none":
+		# use configured address for connection
+		target_addr = config["address"]
+		
+		# show user message
+		terminal.reportLine(f"Connecting to: {target_addr}")
+	else:
+		terminal.reportLine("No address provided.")
+	
 		# scan for devices
-		if True:
-			scanned_uarts = []
-			def find_uart_device(device, adv):
-				if UART_SERVICE_UUID.lower() in adv.service_uuids and device not in scanned_uarts:
-					scanned_uarts.append(device)
-			
-			# configure scanner
-			scanner = bleak.BleakScanner(find_uart_device)
-			scanned_uarts.clear()
-			
-			# curses prep
-			current_line = 0
-						
-			# scan for uart
-			reportLine(current_line, "Scanning for BLE UART interfaces:")
-			current_line += 1
-			await scanner.start()
-			await asyncio.sleep(5.0)
-			await scanner.stop()
-			
-			# display devices
-			for uart in scanned_uarts:
-				reportLine(current_line, f"\t{uart}")
-				current_line += 1
-			await asyncio.sleep(5)
+		scanned_uarts = []
+		def find_uart_device(device, adv):
+			#screen.reportLine("Scanning.")
+			if UART_SERVICE_UUID.lower() in adv.service_uuids and device not in scanned_uarts:
+				scanned_uarts.append(device)
+		
+		# configure scanner
+		scanner = bleak.BleakScanner(find_uart_device)
+		scanned_uarts.clear()
+		
+		# scan for uart
+		terminal.reportLine("Scanning for BLE UART interfaces:")
+		await scanner.start()
+		await asyncio.sleep(5.0)
+		await scanner.stop()
+		
+		# display devices
+		for uart in scanned_uarts:
+			terminal.reportLine(f"\t{uart}")
+		await asyncio.sleep(5)
 
 		if len(scanned_uarts) > 0:
-			reportLine(current_line, "Connecting to first BLE UART.")
-			current_line += 1
+			terminal.reportLine("Connecting to first BLE UART.")
 		else:
-			reportLine(current_line, "No BLE UART found. Exiting now.")
-			current_line += 1
+			terminal.reportLine("No BLE UART found. Exiting now.")
 			await asyncio.sleep(5)
 			exit()	
+			
+		target_addr = scanned_uarts[0].address
 
-		async with bleak.BleakClient(scanned_uarts[0].address) as client:
+	try:
+		# proceed with connection
+		async with bleak.BleakClient(target_addr) as client:
 			await client.start_notify(UART_TX_CHAR_UUID, handle_rx)
 			if client.is_connected:
-				reportLine(current_line, "Connected to VESC.") # TODO: implement check
-				current_line += 1
+				terminal.reportLine("Connected to VESC.") # TODO: implement check
 				await asyncio.sleep(1)
 
-			screen.erase()
+			terminal.erase()
 			while True:
 				if client.is_connected:
 					await client.write_gatt_char(UART_RX_CHAR_UUID, bytearray(packet_get_values.packet))
 					
-				# poll rate 200 ms
+				# poll rate 200 msf
 				await asyncio.sleep(0.2) 
 	except bleak.exc.BleakError as e:
-		reportLine(current_line, f"error: {e}")
-		current_line += 1
-		await asyncio.sleep(1)
+		screen.reportLine(f"error: {e}")
+		await asyncio.sleep(5)
 	except asyncio.exceptions.TimeoutError as e:
-		reportLine(current_line, f"error: async Timeout Error")
-		current_line += 1
-		await asyncio.sleep(1)
+		screen.reportLine(f"error: async Timeout Error")
+		await asyncio.sleep(5)
 
 
 class Buffer:
@@ -192,6 +217,7 @@ class Buffer:
 		return " ".join([hex(x) for x in self.__buffer])
 
 
+#----------------------------------------
 class Packet:
 
 	"""Vesc Packet load data then encode or decode"""
@@ -274,15 +300,13 @@ class Packet:
 	def __str__(self):
 		"""Packet as string"""
 		return " ".join([hex(x) for x in self.__packet])
+#----------------------------------------
 
 
 if __name__ == "__main__":
 	try:
 		# init curses
-		screen = curses.initscr()
-		curses.noecho()
-		curses.cbreak()
-		curses.curs_set(0)
+		terminal = Terminal()
 		
 		# run main
 		asyncio.run(bluetooth())
@@ -291,7 +315,4 @@ if __name__ == "__main__":
 		exit()
 	finally:
 		# end curses
-		curses.echo()
-		curses.nocbreak()
-		curses.curs_set(1)
-		curses.endwin()
+		terminal.unload()
